@@ -1,12 +1,10 @@
 name: Assume AWS Role via GitHub OIDC - sts-lab-2-target
 
 on:
-  workflow_dispatch:     # Allows you to trigger manually from GitHub UI
-  push:
-    branches: [ main ]
+  workflow_dispatch
 
 permissions:
-  id-token: write        # Required for OIDC token
+  id-token: write
   contents: read
 
 jobs:
@@ -23,7 +21,7 @@ jobs:
           role-to-assume: arn:aws:iam::152815104156:role/sts-lab-2-target
           role-session-name: github-oidc-lab
           audience: sts.amazonaws.com
-          aws-region: us-east-1          # ← This was missing! (most common default)
+          aws-region: us-east-1
 
       - name: Verify assumed identity
         run: aws sts get-caller-identity
@@ -31,11 +29,11 @@ jobs:
       - name: List Secrets
         run: aws secretsmanager list-secrets --query 'SecretList[].Name' --output table
 
-      - name: Read the Flag
+      - name: Read sts-lab-2 Flag
         run: |
-          echo "=== Trying common secret names ==="
-          aws secretsmanager get-secret-value --secret-id flag --query 'SecretString' --output text 2>/dev/null || \
-          aws secretsmanager get-secret-value --secret-id lab-flag --query 'SecretString' --output text 2>/dev/null || \
-          aws secretsmanager get-secret-value --secret-id secret --query 'SecretString' --output text 2>/dev/null || \
-          aws secretsmanager get-secret-value --secret-id sts-lab-2-flag --query 'SecretString' --output text 2>/dev/null || \
-          echo "[-] Flag not found. Check the list-secrets output above."
+          echo "=== Retrieving flag for sts-lab-2 ==="
+          FLAG=$(aws secretsmanager get-secret-value \
+            --secret-id flag_sts_lab_2 \
+            --query 'SecretString' \
+            --output text)
+          echo "Flag: $FLAG"
